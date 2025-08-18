@@ -40,30 +40,60 @@ static inline void creat_epilogue(asm_out *out) {
     add_asm_line(out, "buffer rb 30000 ; reserve 30,000 bytes (≈30 KB)\n");
 }
 
-static inline void inc_handle(asm_out *out) {
-    add_asm_line(out, "    inc    rsi\n");
+static inline void inc_handle(asm_out *out, uint8_t compres_code) {
+    if (compres_code == 1) { 
+        add_asm_line(out, "    inc    rsi\n");
+    } 
+    else {
+        char line[64] = {0};
+        sprintf(line, "    add    rsi, %d\n", compres_code);
+        add_asm_line(out, line);
+    }
 }
 
-static inline void dec_handle(asm_out *out) {
-    add_asm_line(out, "    dec    rsi\n");
+static inline void dec_handle(asm_out *out, uint8_t compres_code) {
+    if (compres_code == 1) { 
+        add_asm_line(out, "    dec    rsi\n");
+    } 
+    else {
+        char line[124] = {0};
+        sprintf(line, "    sub    rsi, %d\n", compres_code);
+        add_asm_line(out, line);
+    }
 }
 
-static inline void add_handle(asm_out *out) {
-    add_asm_line(out, "    inc    byte [rsi]\n");
+static inline void add_handle(asm_out *out, uint8_t compres_code) {
+    if (compres_code == 1) {
+        add_asm_line(out, "    inc    byte [rsi]\n");
+    }
+    else {
+        char line[124] = {0};
+        sprintf(line, "    add    byte [rsi], %d\n", compres_code);
+        add_asm_line(out, line);
+    }
 }
 
-static inline void sub_handle(asm_out *out) {
-    add_asm_line(out, "    dec    byte [rsi]\n");
+static inline void sub_handle(asm_out *out, uint8_t compres_code) {
+    if (compres_code == 1) {
+        add_asm_line(out, "    dec    byte [rsi]\n");
+    }
+    else {
+        char line[124] = {0};
+        sprintf(line, "    sub    byte [rsi], %d\n", compres_code);
+        add_asm_line(out, line);
+    }
 }
 
-static inline void out_handle(asm_out *out) {
+static inline void out_handle(asm_out *out, uint8_t compres_code) {
+
     add_asm_line(out, "    mov    rax, 1\n");
     add_asm_line(out, "    mov    rdi, 1\n");
     add_asm_line(out, "    mov    rdx, 1\n");
     add_asm_line(out, "    syscall\n");
+   
 }
 
-static inline void get_handle(asm_out *out) {
+static inline void get_handle(asm_out *out, uint8_t compres_code) {
     add_asm_line(out, "    mov    rax, 0\n");
     add_asm_line(out, "    mov    rdi, 0\n");
     add_asm_line(out, "    mov    rdx, 1\n");
@@ -99,56 +129,63 @@ static inline void jmp_handle(bracket_stack *bs, asm_out *out) {
     stack_pop(bs);
 }
 
-asm_out crate_asm(bf_file *bf) {
+
+static void interprate_lex(asm_out *out, uint8_t opcode, uint8_t compres_code, bracket_stack *bs) {
+
+    switch (opcode) {
+        case INC: {
+            inc_handle(out, compres_code);
+            break;
+        }
+
+        case DEC: { 
+            dec_handle(out, compres_code);
+            break;
+        }
+
+        case ADD: {
+            add_handle(out, compres_code);
+            break;
+        }
+
+        case SUB: {
+            sub_handle(out, compres_code);
+            break;
+        }
+        
+        case OUT: {
+            out_handle(out, compres_code);
+            break;
+        }
+
+        case GET: {
+            get_handle(out, compres_code);
+            break;
+        }
+
+        case LABEL: {
+            label_handle(bs, out);
+            break;
+        }
+
+        case JMP: {
+            jmp_handle(bs, out);
+            break;
+        }
+        default: {
+            // nothink
+        }
+    }
+}
+
+asm_out crate_asm(uint8_t *rle_bf, size_t rle_bf_len) {
     asm_out out = {0};
     bracket_stack bs = init_stack();
 
     creat_prolog(&out);
-    for (int i = 0; i < bf->len; i++) {
-        switch (bf->buffer[i]) {
-            case INC: {
-                inc_handle(&out);
-                break;
-            }
-
-            case DEC: { 
-                dec_handle(&out);
-                break;
-            }
-
-            case ADD: {
-                add_handle(&out);
-                break;
-            }
-
-            case SUB: {
-                sub_handle(&out);
-                break;
-            }
-            
-            case OUT: {
-                out_handle(&out);
-                break;
-            }
-
-            case GET: {
-                get_handle(&out);
-                break;
-            }
-
-            case LABEL: {
-                label_handle(&bs, &out);
-                break;
-            }
-
-            case JMP: {
-                jmp_handle(&bs, &out);
-                break;
-            }
-            default: {
-                // nothink
-            }
-        }
+    int opcode_count = rle_bf_len / 2;
+    for (int i = 0; i < opcode_count; i++) {
+        interprate_lex(&out, rle_bf[i + 1], rle_bf[i], &bs);
     }
 
     creat_epilogue(&out);

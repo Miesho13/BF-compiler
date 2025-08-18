@@ -22,7 +22,7 @@ typedef enum  {
 } TOKENS;
 
 int add_asm_line(asm_out *out, const char* line);
-asm_out crate_asm(bf_file *bf_content);
+asm_out crate_asm(uint8_t *rle_bf, size_t rle_bf_len);
 int call_fasm_cpm();
 int save_out_asm(asm_out *out);
 
